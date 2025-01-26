@@ -19,6 +19,7 @@ import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
+import { useMemo, useCallback } from "react";
 
 const ChapterModal = () => {
   const dispatch = useAppDispatch();
@@ -29,11 +30,6 @@ const ChapterModal = () => {
     sections,
   } = useAppSelector((state) => state.global.courseEditor);
 
-  const chapter: Chapter | undefined =
-    selectedSectionIndex !== null && selectedChapterIndex !== null
-      ? sections[selectedSectionIndex].chapters[selectedChapterIndex]
-      : undefined;
-
   const methods = useForm<ChapterFormData>({
     resolver: zodResolver(chapterSchema),
     defaultValues: {
@@ -43,21 +39,41 @@ const ChapterModal = () => {
     },
   });
 
-  useEffect(() => {
-    if (chapter) {
-      methods.reset({
-        title: chapter.title,
-        content: chapter.content,
-        video: chapter.video || "",
-      });
-    } else {
-      methods.reset({
-        title: "",
-        content: "",
-        video: "",
-      });
+  const chapter = useMemo(() => {
+    if (selectedSectionIndex !== null && selectedChapterIndex !== null) {
+      return sections[selectedSectionIndex]?.chapters[selectedChapterIndex];
     }
-  }, [chapter, methods]);
+    return undefined;
+  }, [selectedSectionIndex, selectedChapterIndex, sections]);
+
+  const resetForm = useCallback((data: any) => methods.reset(data), [methods]);
+
+  useEffect(() => {
+    const currentValues = methods.getValues();
+    const hasChanges = chapter
+      ? currentValues.title !== chapter.title ||
+        currentValues.content !== chapter.content ||
+        currentValues.video !== (chapter.video || "")
+      : currentValues.title !== "" ||
+        currentValues.content !== "" ||
+        currentValues.video !== "";
+
+    if (!hasChanges) return;
+
+    resetForm(
+      chapter
+        ? {
+            title: chapter.title,
+            content: chapter.content,
+            video: chapter.video || "",
+          }
+        : {
+            title: "",
+            content: "",
+            video: "",
+          }
+    );
+  }, [chapter, resetForm]);
 
   const onClose = () => {
     dispatch(closeChapterModal());

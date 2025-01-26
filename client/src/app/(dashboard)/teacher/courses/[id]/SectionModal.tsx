@@ -7,7 +7,7 @@ import { addSection, closeSectionModal, editSection } from "@/state";
 import { useAppDispatch, useAppSelector } from "@/state/redux";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { X } from "lucide-react";
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
@@ -18,9 +18,6 @@ const SectionModal = () => {
     (state) => state.global.courseEditor
   );
 
-  const section =
-    selectedSectionIndex !== null ? sections[selectedSectionIndex] : null;
-
   const methods = useForm<SectionFormData>({
     resolver: zodResolver(sectionSchema),
     defaultValues: {
@@ -29,19 +26,35 @@ const SectionModal = () => {
     },
   });
 
+  const section = useMemo(() => {
+    return selectedSectionIndex !== null
+      ? sections[selectedSectionIndex]
+      : null;
+  }, [selectedSectionIndex, sections]);
+
+  const resetForm = useCallback((data: any) => methods.reset(data), [methods]);
+
   useEffect(() => {
-    if (section) {
-      methods.reset({
-        title: section.sectionTitle,
-        description: section.sectionDescription,
-      });
-    } else {
-      methods.reset({
-        title: "",
-        description: "",
-      });
-    }
-  }, [section, methods]);
+    const currentValues = methods.getValues();
+    const hasChanges = section
+      ? currentValues.title !== section.sectionTitle ||
+        currentValues.description !== section.sectionDescription
+      : currentValues.title !== "" || currentValues.description !== "";
+
+    if (!hasChanges) return;
+
+    resetForm(
+      section
+        ? {
+            title: section.sectionTitle,
+            description: section.sectionDescription,
+          }
+        : {
+            title: "",
+            description: "",
+          }
+    );
+  }, [section, resetForm, methods]);
 
   const onClose = () => {
     dispatch(closeSectionModal());
